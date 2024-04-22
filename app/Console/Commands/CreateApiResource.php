@@ -266,7 +266,7 @@ class $name extends Model
 
     private function addRouteToApiFile($variableName)
     {
-        $apiFilePath = 'I:\Nosotros\FormularioTrabajaConNosotros\routes\api.php';
+        $apiFilePath = '\routes\api.php';
 
         // Verificar si el archivo ya contiene la ruta
         $fileContent = file_get_contents($apiFilePath);
