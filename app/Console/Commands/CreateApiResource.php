@@ -52,9 +52,24 @@ class CreateApiResource extends Command
         }
 
         // Check for migration existence
-        $migrationPath = database_path('migrations/*_create_' . strtolower($name) . '_table.php');
 
-        if (!glob($migrationPath)) {
+        $migrationPaths = [
+            database_path('migrations/*_create_' . strtolower($name) . '_table.php'),
+            database_path('migrations/*_create_' . strtolower($name) . '.php'),
+            database_path('migrations/*_' . strtolower($name) . '.php'),
+        ];
+
+        $errorPath = true;
+
+        foreach ($migrationPaths as $path){
+            if (glob($path)){
+                $migrationPath = $path;
+                $errorPath = false;
+                break;
+            }
+        }
+
+        if($errorPath){
             $this->warn("No migration found for '$name'. Skipping model creation.");
             return;
         }
@@ -76,6 +91,9 @@ class CreateApiResource extends Command
             foreach ($fieldMatches as $match) {
                 $fieldName = trim($match[2]);
                 if($fieldName && ($match[1] != 'id' || $match[1] != 'timestamps')){
+
+                    $fieldName = preg_replace("/'(.*?),\s*(\w+)/", "$1", $fieldName);
+
                     $columns[] = str_replace("'",'',$fieldName);
                 }
             }
@@ -106,10 +124,9 @@ class $name extends Model
         $this->info("Model '$name' created based on migration.");
     }
 
-
     private function createController($name)
     {
-        $controllerSufijo = 'Controller';
+        $controllerSufijo = 'ApiController';
         $controllerPath = app_path('Http\\Controllers\\API\\' . $name . $controllerSufijo . '.php');
 
         if (file_exists($controllerPath)) {
@@ -142,8 +159,11 @@ class $name extends Model
 
             foreach ($fieldMatches as $match) {
                 $fieldName = trim($match[2]);
+
                 if($fieldName && ($match[1] != 'id' || $match[1] != 'timestamps')){
-                    $columns[] = [str_replace("'",'',$fieldName),$match[1]];
+                    $fieldName = preg_replace("/'(.*?),\s*(\w+)/", "$1", $fieldName);
+                    $valores = preg_replace('/'.$fieldName.'(\')?\s*,\s*/','',$match[2]);
+                    $columns[] = [str_replace("'",'',$fieldName),$match[1].($valores && is_numeric($valores) ? "|max:".str_replace("'",'',$valores) :'')];
                 }
             }
 
@@ -195,8 +215,8 @@ class $name extends Model
                 return "
     public function show(\$id)
     {
-        \$record = $modelName::findOrFail(\$id);
-        // ... lógica para mostrar el registro específico ...
+        \$".strtolower($modelName)." = $modelName::findOrFail(\$id);
+        return response()->json(\$".strtolower($modelName).", 201);
     }
     ";
             case 'store':
@@ -252,8 +272,6 @@ class $name extends Model
         }
     }
 
-
-
     private function createRoute($name)
     {
         $routeName = strtolower($name);
@@ -261,12 +279,14 @@ class $name extends Model
         $this->info("Adding route for API resource '$name'");
 
         Route::apiResource($routeName, 'API\\' . $name . 'Controller');
+        $this->addRouteToApiFile($name);
     }
 
 
     private function addRouteToApiFile($variableName)
     {
-        $apiFilePath = '\routes\api.php';
+        $apiFilePath = base_path('routes\api.php');
+
 
         // Verificar si el archivo ya contiene la ruta
         $fileContent = file_get_contents($apiFilePath);

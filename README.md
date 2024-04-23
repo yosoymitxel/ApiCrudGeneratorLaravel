@@ -83,7 +83,10 @@ class Create{ModelName}Command extends Command
 Para generar un CRUD API para el modelo `Post`, ejecuta el siguiente comando:
 
 ```bash
-php artisan make:crud-api:Post
+php artisan make:migration  create_clientes_table
+php artisan migrate --seed
+
+php artisan make:crud-api Clientes
 ```
 
 Esto generará los archivos de controlador, modelo y ruta para el modelo `Post`.
